@@ -26,9 +26,14 @@ def start_backend() -> subprocess.Popen:
     # 根据系统判断 python 执行文件
     python_exec = sys.executable
     
+    # 注入 PYTHONPATH，让 backend 内的绝对导入生效
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(WORKSPACE_DIR)
+    
     proc = subprocess.Popen(
-        [python_exec, "main.py"],
-        cwd=BACKEND_DIR,
+        [python_exec, "backend/main.py"],
+        cwd=WORKSPACE_DIR,
+        env=env,
         stdout=log_file,
         stderr=subprocess.STDOUT
     )
