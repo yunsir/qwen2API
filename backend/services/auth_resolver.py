@@ -3,7 +3,7 @@ import logging
 from backend.core.account_pool import AccountPool, Account
 from backend.core.browser_engine import _new_browser
 from backend.core.config import settings
-from backend.core.store import Account
+from backend.core.account_pool import Account
 import logging
 import asyncio
 import random
