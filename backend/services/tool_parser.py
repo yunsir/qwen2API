@@ -61,19 +61,34 @@ def _find_tool_use_json(text: str, tool_names: set[str]):
     return None
 
 
+def _extract_first_xml_tool_call(text: str) -> str | None:
+    wrapped_match = re.search(r"<tool_calls>\s*(<tool_call>[\s\S]*?</tool_call>)\s*</tool_calls>", text, re.IGNORECASE)
+    if wrapped_match:
+        return wrapped_match.group(1)
+
+    tool_call_match = re.search(r"<tool_call>\s*(\{[\s\S]*?\}|[\s\S]*?)\s*</tool_call>", text, re.IGNORECASE)
+    if tool_call_match:
+        return tool_call_match.group(0)
+    return None
+
+
 def _normalize_fragmented_tool_call(answer: str) -> str:
     text = answer.strip()
     if "##TOOL_CALL##" in text and "##END_CALL##" in text:
         return text
 
-    tool_call_match = re.search(r"<tool_call>\s*(\{[\s\S]*?\})\s*</tool_call>", text, re.IGNORECASE)
-    if tool_call_match:
-        return tool_call_match.group(0)
+    extracted_tool_call = _extract_first_xml_tool_call(text)
+    if extracted_tool_call:
+        return extracted_tool_call
 
     text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"Tool\s+[A-Za-z0-9_.:-]*\s*does not exists?\\.?", "", text, flags=re.IGNORECASE)
     text = re.sub(r"```[\s\S]*?```", "", text)
+
+    extracted_tool_call = _extract_first_xml_tool_call(text)
+    if extracted_tool_call:
+        return extracted_tool_call
 
     lines = []
     for raw_line in text.splitlines():
@@ -254,9 +269,11 @@ def inject_format_reminder(prompt: str, tool_name: str) -> str:
     reminder = (
         f"[CORRECTION]: You called '{tool_name}' using the WRONG format — "
         f"the server BLOCKED it with 'Tool {tool_name} does not exists.'. "
-        f"You MUST retry the SAME tool immediately using EXACTLY this XML wrapper and nothing else:\n"
+        f"You MUST retry the SAME tool immediately using EXACTLY one of these XML wrappers and nothing else:\n"
+        f"<tool_calls><tool_call>{{\"name\": {json.dumps(tool_name)}, \"input\": {{...your args here...}}}}</tool_call></tool_calls>\n"
+        f"Fallback compatibility wrapper:\n"
         f"<tool_call>{{\"name\": {json.dumps(tool_name)}, \"input\": {{...your args here...}}}}</tool_call>\n"
-        f"DO NOT use bare JSON. DO NOT use ##TOOL_CALL##. DO NOT write any prose before or after the wrapper.\n"
+        f"DO NOT use bare JSON. DO NOT use ##TOOL_CALL##. DO NOT write any prose, markdown fences, or thinking tags before or after the wrapper.\n"
     )
     prompt = prompt.rstrip()
     if prompt.endswith("Assistant:"):

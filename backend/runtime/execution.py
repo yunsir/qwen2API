@@ -492,8 +492,9 @@ def evaluate_retry_directive(
         blocked_name = normalize_tool_name_for_retry(state.blocked_tool_names[0], request.tool_names)
         force_text = (
             f"[MANDATORY NEXT STEP]: The server blocked tool '{blocked_name}' with 'Tool {blocked_name} does not exists.'. "
-            f"Retry immediately using ONLY this exact wrapper and no prose before or after it:\n"
-            f"<tool_call>{{\"name\": {json.dumps(blocked_name)}, \"input\": {{...your args here...}}}}</tool_call>"
+            "Retry immediately using ONLY raw XML at the very end and no prose before or after it:\n"
+            f"<tool_calls><tool_call>{{\"name\": {json.dumps(blocked_name)}, \"input\": {{...your args here...}}}}</tool_call></tool_calls>\n"
+            f"Fallback compatibility format if needed:\n<tool_call>{{\"name\": {json.dumps(blocked_name)}, \"input\": {{...your args here...}}}}</tool_call>"
         )
         if state.emitted_visible_output and not allow_after_visible_output:
             next_prompt = inject_assistant_message(current_prompt, force_text)
